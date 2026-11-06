@@ -1,0 +1,43 @@
+{
+  "name": "pikaid/pikaid-php",
+  "description": "Official PHP implementation of pikaid — 26-character sortable Base36 identifiers with 96-bit cryptographic randomness and 17-byte binary storage.",
+  "keywords": [
+    "pikaid",
+    "identifier",
+    "unique-id",
+    "sortable-id",
+    "base36",
+    "uuid",
+    "ulid"
+  ],
+  "type": "library",
+  "license": "MIT",
+  "autoload": {
+    "psr-4": {
+      "Pikaid\\": "src/"
+    }
+  },
+  "autoload-dev": {
+    "psr-4": {
+      "Pikaid\\Tests\\": "tests/"
+    }
+  },
+  "require": {
+    "php": ">=7.3",
+    "php-64bit": "*"
+  },
+  "require-dev": {
+    "phpunit/phpunit": "^12.1.5",
+    "ramsey/uuid": "^4.7.6",
+    "robinvdvleuten/ulid": "^5.0.0",
+    "hidehalo/nanoid-php": "^2.0"
+  },
+  "suggest": {
+    "ext-gmp": "Fastest Base36 conversions (recommended for best performance)",
+    "ext-bcmath": "Faster than pure-PHP fallback if GMP is unavailable"
+  },
+  "scripts": {
+    "test": "phpunit --configuration phpunit.xml.dist",
+    "bench": "php benchmarks/PerformanceTest.php"
+  }
+}

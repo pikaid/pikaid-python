@@ -1,0 +1,23 @@
+# Python bytecode and caches
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+
+# Virtual environments and tooling
+.venv*/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+
+# Build artifacts
+build/
+dist/
+
+# Local and OS files
+.DS_Store
+.ai/run/

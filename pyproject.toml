@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "pikaid"
-version = "0.1.0"
+version = "1.0.0"
 description = "Official Python implementation of pikaid: compact, sortable, CSPRNG-backed identifiers"
 readme = "README.md"
 license = "MIT"
@@ -15,7 +15,7 @@ authors = [
 ]
 keywords = ["pikaid", "identifier", "id", "base36", "sortable"]
 classifiers = [
-    "Development Status :: 4 - Beta",
+    "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
@@ -53,11 +53,30 @@ include = [
     "/tests",
     "/README.md",
     "/LICENSE",
+    "/CHANGELOG.md",
     "/pyproject.toml",
+]
+# Defense in depth: .ai/ is local-only and must never reach a source archive,
+# even if the .gitignore rule is ever loosened or a file is force-added.
+exclude = [
+    "/.ai",
+    "/.github",
+    "/.venv*",
+    "/dist",
+    "/.pytest_cache",
+    "/.mypy_cache",
+    "/.ruff_cache",
+    "/.hypothesis",
+    "**/__pycache__",
 ]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/pikaid"]
+# Defense in depth: the wheel contains the import package only.
+exclude = [
+    "/.ai",
+    "**/__pycache__",
+]
 
 [tool.pytest.ini_options]
 minversion = "8.0"

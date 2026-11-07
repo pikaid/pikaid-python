@@ -20,6 +20,8 @@ dist/
 
 # Local and OS files
 .DS_Store
-.ai/run/
 
-/.??
+# Local-only AI working artifacts: never tracked or packaged.
+# This explicit root rule replaces the previous overbroad "/.??" pattern,
+# which also matched unrelated root dotfiles.
+/.ai/

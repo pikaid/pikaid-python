@@ -70,7 +70,7 @@ def test_module_exports_are_declared_and_importable() -> None:
     for name in pikaid.__all__:
         assert hasattr(pikaid, name), name
     assert isinstance(pikaid.__version__, str)
-    assert pikaid.__version__ == "0.1.0"
+    assert pikaid.__version__ == "1.0.0"
 
 
 def test_star_import_matches_public_contract() -> None:

@@ -8,7 +8,7 @@
 
 # pikaid — Official Python Implementation
 
-**Status: implementation complete, not yet published to a package index.**
+**Status: version 1.0.0 prepared, not yet published to a package index.**
 
 This repository contains the official Python implementation of
 [pikaid](https://github.com/pikaid), a compact, chronologically sortable
@@ -58,6 +58,13 @@ For development:
 uv venv --python 3.12
 uv sync --extra dev
 ```
+
+## Release status and versioning
+
+Package version **1.0.0** is the first stable version of this Python package.
+The identifier format is unversioned; the package version refers only to this
+implementation. It has not been published yet: no Git tag, registry upload, or
+signed artifact exists. See [CHANGELOG.md](CHANGELOG.md).
 
 ## Usage
 

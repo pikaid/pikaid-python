@@ -138,7 +138,7 @@ def _random_bytes(count: int) -> bytes:
     """
     try:
         data = secrets.token_bytes(count)
-    except Exception as error:  # pragma: no cover - exercised with monkeypatching
+    except Exception as error:
         raise EntropySourceError(
             "the cryptographic random number generator failed; no pikaid was generated"
         ) from error

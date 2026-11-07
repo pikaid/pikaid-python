@@ -1,0 +1,11 @@
+# Check out text files with LF on every platform. The vendored fixtures are
+# hashed as raw bytes by tests/test_vectors.py, so Windows CRLF translation
+# must not change them (it is unrelated to the unversioned identifier format).
+* text=auto eol=lf
+
+# Canonical, byte-pinned fixtures: never translate line endings.
+tests/vectors/*.json text eol=lf
+
+# Windows batch scripts require CRLF.
+*.bat text eol=crlf
+*.cmd text eol=crlf

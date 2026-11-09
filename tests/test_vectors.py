@@ -42,6 +42,16 @@ def test_vector_fixtures_are_pinned() -> None:
     assert _digest(VECTOR_DIR / "pikaid-v1.schema.json") == SCHEMA_SHA256
 
 
+def test_vector_fixtures_have_no_crlf_translation() -> None:
+    # The digests above are computed on raw bytes.  A Windows checkout that
+    # translated LF to CRLF previously broke interoperability; keep the failure
+    # explicit on every platform, including windows-latest in CI.
+    for name in ("pikaid-v1.json", "pikaid-v1.schema.json", "README.md"):
+        data = (VECTOR_DIR / name).read_bytes()
+        assert b"\r" not in data, f"{name} contains CR bytes"
+        assert data.endswith(b"\n"), f"{name} must end with a single LF"
+
+
 def test_vector_metadata_matches_spec_revision() -> None:
     meta = VECTORS["meta"]
     assert meta["project"] == "pikaid"

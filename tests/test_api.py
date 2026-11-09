@@ -214,10 +214,25 @@ def test_supported_binary_input_conversions_are_lossless() -> None:
 
 def test_docstring_examples_match_documented_output() -> None:
     # These values also appear in README.md and are covered by doctests there.
-    assert generate(timestamp=SAMPLE_TIMESTAMP) not in {""}
+    generated = generate(timestamp=SAMPLE_TIMESTAMP)
+    assert is_valid(generated)
+    assert len(generated) == STRING_LENGTH
+    assert parse(generated).timestamp == SAMPLE_TIMESTAMP
+    assert len(parse(generated).randomness) == RANDOMNESS_BYTES
+
     assert make_id(SAMPLE_TIMESTAMP, SAMPLE_RANDOMNESS) == SAMPLE_ID
     assert parse(SAMPLE_ID).timestamp == SAMPLE_TIMESTAMP
     assert parse(SAMPLE_ID).randomness_hex == SAMPLE_RANDOMNESS.hex()
+
+
+def test_value_object_does_not_alias_a_mutable_binary_source() -> None:
+    source = bytearray(SAMPLE_BINARY)
+    value = from_binary(source)
+    source[:] = b"\x00" * len(source)
+
+    assert value.to_binary() == SAMPLE_BINARY
+    assert value.to_string() == SAMPLE_ID
+    assert value.randomness_hex == SAMPLE_RANDOMNESS.hex()
 
 
 def test_package_metadata_version_matches_module_version() -> None:

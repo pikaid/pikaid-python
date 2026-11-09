@@ -88,7 +88,9 @@ branch = true
 source = ["pikaid"]
 
 [tool.coverage.report]
-fail_under = 90
+# Measured at 100% lines and branches on CPython 3.11, 3.12, 3.13 and 3.14.
+# Keep the gate at the measured level instead of allowing silent regression.
+fail_under = 100
 show_missing = true
 exclude_also = [
     "if TYPE_CHECKING:",

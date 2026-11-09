@@ -234,9 +234,11 @@ uv run pytest --cov=pikaid --cov-report=term-missing
 ```
 
 The test suite runs every official vector, checks the fixture checksums and
-schema, and adds independent known-answer, malformed-input, overflow,
-boundary, zero-padding, property-based round-trip, ordering, generated-value,
-and CSPRNG-failure tests. README examples are executed by `tests/test_readme.py`.
+schema, and adds a pinned cross-representation conformance matrix: independent
+known-answer, malformed-input, overflow, boundary, zero-padding, property-based
+round-trip, ordering, generated-value, and CSPRNG-failure tests.
+`tests/test_readme.py` executes the README examples, and CI enforces 100% line
+and branch coverage on every matrix entry.
 
 ## License
 

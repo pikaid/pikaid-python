@@ -14,7 +14,8 @@ def test_readme_examples_execute_cleanly() -> None:
         module_relative=False,
         optionflags=doctest.ELLIPSIS,
     )
-    assert attempted > 0
+    # A fixed count prevents a broken/empty extraction from passing silently.
+    assert attempted == 30
     assert failures == 0
 
 

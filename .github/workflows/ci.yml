@@ -42,8 +42,15 @@ jobs:
 
       - name: Ensure the test oracle never imports the implementation
         run: |
-          ! grep -nE '(^|[[:space:]])(import|from)[[:space:]]+pikaid' tests/support.py
-          ! grep -n 'pikaid\.' tests/support.py
+          # ``! grep`` would be exempt from ``set -e``, so assert explicitly.
+          if grep -nE '(^|[[:space:]])(import|from)[[:space:]]+pikaid' tests/support.py; then
+            echo "::error::tests/support.py must not import pikaid"
+            exit 1
+          fi
+          if grep -n 'pikaid\.' tests/support.py; then
+            echo "::error::tests/support.py must not reference pikaid"
+            exit 1
+          fi
 
       - name: Ensure local-only artifacts are not tracked
         run: |
@@ -249,9 +256,11 @@ jobs:
     timeout-minutes: 25
     env:
       # Immutable upstream provenance.  Never point this at a mutable branch.
+      # The ``runner`` context is not available in a job-level ``env`` block,
+      # so the checkout directory is exported from the fetch step via
+      # ``$GITHUB_ENV`` instead.
       PIKAID_SUITE_COMMIT: 059780cc0e5b113443812720d95c630649bf3aa3
       PIKAID_SUITE_REPO: https://github.com/pikaid/pikaid-specs.git
-      PIKAID_SUITE_DIR: ${{ runner.temp }}/pikaid-specs
     steps:
       - uses: actions/checkout@v4
 
@@ -262,6 +271,8 @@ jobs:
       - name: Fetch the pinned official suite at an immutable commit
         run: |
           set -euo pipefail
+          PIKAID_SUITE_DIR="$RUNNER_TEMP/pikaid-specs"
+          echo "PIKAID_SUITE_DIR=$PIKAID_SUITE_DIR" >> "$GITHUB_ENV"
           git init "$PIKAID_SUITE_DIR"
           git -C "$PIKAID_SUITE_DIR" remote add origin "$PIKAID_SUITE_REPO"
           # core.autocrlf=false keeps the checksummed fixtures byte-identical.

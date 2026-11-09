@@ -1,8 +1,10 @@
 name: CI
 
 on:
+  # Every pushed branch is validated.  Conformance must not depend on a branch
+  # protection rule or a required-merge setting that this repository does not
+  # use; the workflow itself is the gate.
   push:
-    branches: [main]
   pull_request:
   workflow_dispatch:
 
@@ -240,3 +242,78 @@ jobs:
           assert pikaid.parse(value).datetime.tzinfo is not None
           print(pikaid.__version__, sys.version)
           PY
+
+  conformance:
+    name: Official conformance suite (pinned commit)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      # Immutable upstream provenance.  Never point this at a mutable branch.
+      PIKAID_SUITE_COMMIT: 059780cc0e5b113443812720d95c630649bf3aa3
+      PIKAID_SUITE_REPO: https://github.com/pikaid/pikaid-specs.git
+      PIKAID_SUITE_DIR: ${{ runner.temp }}/pikaid-specs
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Fetch the pinned official suite at an immutable commit
+        run: |
+          set -euo pipefail
+          git init "$PIKAID_SUITE_DIR"
+          git -C "$PIKAID_SUITE_DIR" remote add origin "$PIKAID_SUITE_REPO"
+          # core.autocrlf=false keeps the checksummed fixtures byte-identical.
+          git -C "$PIKAID_SUITE_DIR" -c core.autocrlf=false \
+            fetch --depth 1 origin "$PIKAID_SUITE_COMMIT"
+          git -C "$PIKAID_SUITE_DIR" -c core.autocrlf=false checkout --detach FETCH_HEAD
+          test "$(git -C "$PIKAID_SUITE_DIR" rev-parse HEAD)" = "$PIKAID_SUITE_COMMIT"
+          # The driver re-verifies SHA256SUMS, suite identity and fixture counts.
+          test -f "$PIKAID_SUITE_DIR/conformance/SHA256SUMS"
+
+      - name: Install build and suite dependencies
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          python -m pip install build "jsonschema==4.26.0"
+
+      - name: Build wheel and sdist
+        env:
+          SOURCE_DATE_EPOCH: "0"
+        run: python -m build --outdir dist
+
+      - name: Run the pinned suite against the installed wheel
+        run: |
+          set -euo pipefail
+          python -m venv wheel-venv
+          wheel-venv/bin/python -m pip install --upgrade pip
+          wheel-venv/bin/python -m pip install dist/*.whl
+          wheel-venv/bin/python -c "import pikaid; assert 'site-packages' in pikaid.__file__, pikaid.__file__"
+          # The driver runs on the build environment's interpreter (it executes
+          # the suite's own jsonschema-backed tools); only the adapter runs under
+          # the clean venv so the installed wheel is what gets tested.
+          python tests/official/run_official_suite.py \
+            --suite "$PIKAID_SUITE_DIR/conformance" \
+            --report-json "$RUNNER_TEMP/conformance-wheel.json" \
+            -- wheel-venv/bin/python tests/official/adapter.py
+
+      - name: Run the pinned suite against the installed sdist
+        run: |
+          set -euo pipefail
+          python -m venv sdist-venv
+          sdist-venv/bin/python -m pip install --upgrade pip
+          sdist-venv/bin/python -m pip install dist/*.tar.gz
+          sdist-venv/bin/python -c "import pikaid; assert 'site-packages' in pikaid.__file__, pikaid.__file__"
+          python tests/official/run_official_suite.py \
+            --suite "$PIKAID_SUITE_DIR/conformance" \
+            --report-json "$RUNNER_TEMP/conformance-sdist.json" \
+            -- sdist-venv/bin/python tests/official/adapter.py
+
+      - name: Upload automated conformance reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: official-conformance-reports
+          path: ${{ runner.temp }}/conformance-*.json
+          if-no-files-found: warn

@@ -16,9 +16,10 @@ package and is never imported by it.
 | Fixture inventory | 596 valid / 258 invalid-string / 33 invalid-binary / 186 ordering / 12 generation / 15 properties = **1,100 rows** |
 
 The pins live in `run_official_suite.py`; the suite is never fetched from a
-mutable branch. The driver fails closed unless the checkout is exactly that
-commit, every entry in `SHA256SUMS` matches, the manifest identity is correct,
-and the observed fixture counts equal the declared inventory.
+mutable branch. The driver fails closed unless the suite is a Git checkout whose
+`HEAD` is exactly that commit, all 31 entries in `SHA256SUMS` match, the manifest
+identity is correct, and the observed fixture counts equal the declared
+inventory.
 
 ## What runs
 

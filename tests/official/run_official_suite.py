@@ -129,7 +129,11 @@ def verify_suite_identity(conformance: Path) -> dict[str, Any]:
         raise SuiteError(f"fixture inventory changed: {inventory} != {EXPECTED_FIXTURES}")
 
     commit = _git_commit(conformance)
-    if commit is not None and commit != PINNED_SUITE_COMMIT:
+    if commit is None:
+        raise SuiteError(
+            "the suite is not inside a Git checkout, so the immutable commit pin cannot be verified"
+        )
+    if commit != PINNED_SUITE_COMMIT:
         raise SuiteError(
             f"suite commit is {commit}, expected the immutable pin {PINNED_SUITE_COMMIT}"
         )
@@ -147,20 +151,26 @@ def verify_suite_identity(conformance: Path) -> dict[str, Any]:
 
 
 def _git_commit(directory: Path) -> str | None:
-    """Return the checked-out commit when the suite sits inside a Git work tree."""
-    for candidate in (directory, *directory.parents):
-        if (candidate / ".git").exists():
-            try:
-                completed = subprocess.run(
-                    ["git", "-C", str(candidate), "rev-parse", "HEAD"],
-                    capture_output=True,
-                    text=True,
-                    check=True,
-                )
-            except (OSError, subprocess.CalledProcessError):
-                return None
-            return completed.stdout.strip()
-    return None
+    """Return HEAD when ``directory`` is the ``conformance`` dir of a Git checkout.
+
+    Only the checkout that directly contains ``conformance`` counts.  Walking
+    further up would silently adopt an unrelated enclosing repository (for
+    example when a copied fixture tree lives under this project's own checkout)
+    and report the wrong commit.
+    """
+    suite_root = directory.parent
+    if not (suite_root / ".git").exists():
+        return None
+    try:
+        completed = subprocess.run(
+            ["git", "-C", str(suite_root), "rev-parse", "HEAD"],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+    except (OSError, subprocess.CalledProcessError):
+        return None
+    return completed.stdout.strip()
 
 
 def _run(command: list[str], *, cwd: Path, env: dict[str, str]) -> subprocess.CompletedProcess[str]:

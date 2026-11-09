@@ -240,6 +240,18 @@ round-trip, ordering, generated-value, and CSPRNG-failure tests.
 `tests/test_readme.py` executes the README examples, and CI enforces 100% line
 and branch coverage on every matrix entry.
 
+### Official conformance suite
+
+`tests/official/` contains a test-only JSON-Lines adapter and a fail-closed
+driver for the official cross-language suite, pinned to the immutable
+`pikaid-specs` commit `059780cc0e5b113443812720d95c630649bf3aa3` (suite `1.0.0`,
+specification `1.0.4`). See [`tests/official/README.md`](tests/official/README.md).
+
+The suite's `--automated-only` exit `0` means the automated checks passed. It is
+**not** a conformance certification: `P-GENERATE-RNG-SOURCE` and
+`P-GENERATE-RNG-FAILURE` remain manual human-audit items, and the suite's
+default exit `3` means that audit is still outstanding.
+
 ## License
 
 MIT. See [LICENSE](LICENSE).

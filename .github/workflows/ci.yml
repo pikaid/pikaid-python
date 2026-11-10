@@ -145,21 +145,25 @@ jobs:
           python - <<'PY'
           import hashlib
           import pathlib
+          import tomllib
           import tarfile
           import zipfile
+
+          with pathlib.Path("pyproject.toml").open("rb") as manifest:
+              package_version = tomllib.load(manifest)["project"]["version"]
 
           dist = pathlib.Path("dist")
           wheels = list(dist.glob("*.whl"))
           sdists = list(dist.glob("*.tar.gz"))
           assert len(wheels) == 1 and len(sdists) == 1, (wheels, sdists)
           wheel, sdist = wheels[0], sdists[0]
-          assert wheel.name == "pikaid-1.0.0-py3-none-any.whl", wheel.name
-          assert sdist.name == "pikaid-1.0.0.tar.gz", sdist.name
+          assert wheel.name == f"pikaid-{package_version}-py3-none-any.whl", wheel.name
+          assert sdist.name == f"pikaid-{package_version}.tar.gz", sdist.name
 
           with zipfile.ZipFile(wheel) as archive:
               names = archive.namelist()
               assert all(
-                  name.startswith(("pikaid/", "pikaid-1.0.0.dist-info/")) for name in names
+                  name.startswith(("pikaid/", f"pikaid-{package_version}.dist-info/")) for name in names
               ), names
               assert "pikaid/py.typed" in names
               assert "pikaid/__init__.py" in names
@@ -169,8 +173,8 @@ jobs:
                   if ".ai/" in name or "__pycache__" in name or name.endswith(".pyc")
               ], names
               assert not [name for name in names if name.startswith("tests/")], names
-              metadata = archive.read("pikaid-1.0.0.dist-info/METADATA").decode()
-              assert "Version: 1.0.0" in metadata
+              metadata = archive.read(f"pikaid-{package_version}.dist-info/METADATA").decode()
+              assert f"Version: {package_version}" in metadata
               assert "Requires-Python: >=3.11" in metadata
               runtime_dependencies = [
                   line
@@ -180,24 +184,24 @@ jobs:
               assert not runtime_dependencies, runtime_dependencies
 
           pinned = {
-              "pikaid-1.0.0/tests/vectors/pikaid-v1.json":
+              f"pikaid-{package_version}/tests/vectors/pikaid-v1.json":
                   "b0c9dfdd063613424414fef5c9065fbd2f81d645d0ab42b34e27cde715613500",
-              "pikaid-1.0.0/tests/vectors/pikaid-v1.schema.json":
+              f"pikaid-{package_version}/tests/vectors/pikaid-v1.schema.json":
                   "4441d4dbaa6c5450ae9cbfb2438c53bc0421bba2b7fcc9ef9b158e5d1de0759e",
           }
           with tarfile.open(sdist) as archive:
               members = [member for member in archive.getmembers() if member.isfile()]
               names = [member.name for member in members]
-              assert all(name.startswith("pikaid-1.0.0/") for name in names), names[:3]
+              assert all(name.startswith(f"pikaid-{package_version}/") for name in names), names[:3]
               for required in (
-                  "pikaid-1.0.0/src/pikaid/py.typed",
-                  "pikaid-1.0.0/src/pikaid/_core.py",
-                  "pikaid-1.0.0/tests/test_conformance.py",
-                  "pikaid-1.0.0/tests/vectors/pikaid-v1.json",
-                  "pikaid-1.0.0/README.md",
-                  "pikaid-1.0.0/CHANGELOG.md",
-                  "pikaid-1.0.0/LICENSE",
-                  "pikaid-1.0.0/pyproject.toml",
+                  f"pikaid-{package_version}/src/pikaid/py.typed",
+                  f"pikaid-{package_version}/src/pikaid/_core.py",
+                  f"pikaid-{package_version}/tests/test_conformance.py",
+                  f"pikaid-{package_version}/tests/vectors/pikaid-v1.json",
+                  f"pikaid-{package_version}/README.md",
+                  f"pikaid-{package_version}/CHANGELOG.md",
+                  f"pikaid-{package_version}/LICENSE",
+                  f"pikaid-{package_version}/pyproject.toml",
               ):
                   assert required in names, required
               assert not [
@@ -206,9 +210,9 @@ jobs:
                   if "/.ai/" in name
                   or "__pycache__" in name
                   or name.endswith(".pyc")
-                  or name.startswith("pikaid-1.0.0/.github/")
-                  or name.startswith("pikaid-1.0.0/dist/")
-                  or name.startswith("pikaid-1.0.0/.venv")
+                  or name.startswith(f"pikaid-{package_version}/.github/")
+                  or name.startswith(f"pikaid-{package_version}/dist/")
+                  or name.startswith(f"pikaid-{package_version}/.venv")
               ], names
               for name, expected in pinned.items():
                   data = archive.extractfile(name).read()
@@ -226,7 +230,7 @@ jobs:
           cp -R tests "$work/tests"
           cp README.md "$work/README.md"
           cd "$work"
-          "$GITHUB_WORKSPACE/wheel-venv/bin/python" -c "import pikaid; assert 'site-packages' in pikaid.__file__, pikaid.__file__; assert pikaid.__version__ == '1.0.0'"
+          "$GITHUB_WORKSPACE/wheel-venv/bin/python" -c "import importlib.metadata as metadata; import pikaid; assert 'site-packages' in pikaid.__file__, pikaid.__file__; assert pikaid.__version__ == metadata.version('pikaid')"
           "$GITHUB_WORKSPACE/wheel-venv/bin/python" -m pytest tests -q -p no:cacheprovider
 
       - name: Install the sdist and smoke test from outside the checkout
@@ -239,6 +243,7 @@ jobs:
           "$GITHUB_WORKSPACE/sdist-venv/bin/python" - <<'PY'
           import pathlib
           import sys
+          from importlib.metadata import version
 
           import pikaid
 
@@ -246,7 +251,7 @@ jobs:
           assert "site-packages" in str(root), root
           assert (root / "py.typed").is_file()
           assert (root / "errors.py").is_file()
-          assert pikaid.__version__ == "1.0.0"
+          assert pikaid.__version__ == version("pikaid")
           value = pikaid.generate()
           assert pikaid.is_valid(value)
           assert pikaid.is_well_formed(value)

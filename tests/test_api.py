@@ -5,6 +5,7 @@ from __future__ import annotations
 import dataclasses
 import pickle
 from datetime import UTC, datetime
+from importlib.metadata import version as distribution_version
 
 import pytest
 
@@ -70,7 +71,7 @@ def test_module_exports_are_declared_and_importable() -> None:
     for name in pikaid.__all__:
         assert hasattr(pikaid, name), name
     assert isinstance(pikaid.__version__, str)
-    assert pikaid.__version__ == "1.0.0"
+    assert pikaid.__version__ == distribution_version("pikaid")
 
 
 def test_star_import_matches_public_contract() -> None:

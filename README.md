@@ -52,7 +52,7 @@ CI verifies supported CPython versions on Linux, macOS, and Windows; PyPy and fr
 
 ## 📦 Installation
 
-The package is not yet on PyPI. Install it from this public source repository:
+The package is not yet published to PyPI. Install it from this public source repository:
 
 ```sh
 git clone https://github.com/pikaid/pikaid-python.git
@@ -83,6 +83,8 @@ print(identifier, parsed.timestamp)
 Use pikaid to identify **users, orders, invoices, uploads, events, and API resources**. Independent services can generate compact IDs without a shared counter, while timestamp-based ordering helps with indexing, sorting, and logs.
 
 ## 📚 Canonical specification
+
+The normative specification revision 1.0.4 is pinned at commit `17014d76f568c3ac9f9ce2927c1a018fdbc36d1d`. The independent PHP v1.2.0 interoperability fixtures originate from commit `e3f843edeb5157a5d2d25196cac0d69580810a95`.
 
 - [Canonical specification](https://github.com/pikaid/pikaid-specs)
 - [Revision 1.0.4](https://github.com/pikaid/pikaid-specs/tree/v1.0.4)

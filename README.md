@@ -1,39 +1,46 @@
 <p align="center">
-  <img src="https://raw.githubusercontent.com/pikaid/pikaid-specs/v1.0.4/logo.png" alt="pikaid" width="300" />
+  <a href="https://github.com/pikaid/pikaid-specs">
+    <img src="https://raw.githubusercontent.com/pikaid/pikaid-specs/v1.0.4/logo.png" alt="pikaid" width="300">
+  </a>
 </p>
 
 <p align="center">
   <strong>Small · Sortable · Secure ID generator</strong>
 </p>
 
-# pikaid — Official Python Implementation
+<div align="center">
 
-**Status: version 1.0.0 prepared, not yet published to a package index.**
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Python](https://img.shields.io/badge/language-Python-3776AB.svg)](https://github.com/pikaid/pikaid-python)
+[![CI](https://github.com/pikaid/pikaid-python/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/pikaid/pikaid-python/actions/workflows/ci.yml)
+[![Official implementation](https://img.shields.io/badge/official-implementation-2e7d32.svg)](https://github.com/pikaid/pikaid-specs)
+[![Specification 1.0.4](https://img.shields.io/badge/spec-1.0.4-4b56a6.svg)](https://github.com/pikaid/pikaid-specs/tree/v1.0.4)
 
-This repository contains the official Python implementation of
-[pikaid](https://github.com/pikaid), a compact, chronologically sortable
-identifier format for databases, APIs, and distributed systems.
+</div>
 
-A pikaid is **26 lowercase Base36 characters**: a 7-character whole-second Unix
-timestamp followed by 19 characters encoding exactly 96 bits of cryptographic
-randomness. Its binary form is exactly **17 bytes**: a 5-byte unsigned
-big-endian timestamp followed by the 12 entropy bytes unchanged. The format is
-immutable and unversioned; specification revisions clarify it without changing
-identifiers.
+**pikaid** is the **official Python implementation** of a compact, chronologically sortable, collision-resistant identifier format for databases, APIs, and distributed systems.
 
-## Canonical specification
+This is the immutable, unversioned [pikaid format](https://github.com/pikaid/pikaid-specs/tree/v1.0.4), documented in specification revision **1.0.4**.
 
-The authoritative definition is
-[pikaid specification revision 1.0.4](https://github.com/pikaid/pikaid-specs/tree/v1.0.4)
-(pinned at commit `17014d76f568c3ac9f9ce2927c1a018fdbc36d1d`).
+## ✨ Why pikaid?
 
-Interoperability fixtures are the official
-[PHP v1.2.0 vectors and schema](https://github.com/pikaid/pikaid-php/tree/v1.2.0)
-(commit `e3f843edeb5157a5d2d25196cac0d69580810a95`), vendored under
-`tests/vectors/`. The `pikaid-v1` filename is historical; it does not make the
-identifier format versioned.
+- **Short:** Compact, readable IDs for URLs, logs, and API resources.
+- **Sortable:** Lexicographically ordered by timestamp, with **one-second precision**.
+- **Collision-resistant:** 96 bits of cryptographic randomness make collisions extremely unlikely, never impossible.
+- **Storage-friendly:** Use `BINARY(17)` or readable `CHAR(26)`.
+- **Distributed-friendly:** No central sequence generator or coordination required.
 
-## Requirements
+## 🧬 Identifier format
+
+A pikaid contains **26 lowercase Base36 characters**: a **7-character Unix-seconds timestamp** followed by **19 characters encoding 96 bits of cryptographic randomness**. Its binary form is **17 bytes**: 5 unsigned big-endian timestamp bytes followed by 12 randomness bytes.
+
+![Identifier structure](https://raw.githubusercontent.com/pikaid/pikaid-specs/v1.0.4/structure.svg)
+
+> **Ordering:** Different seconds sort chronologically. Within the same second, randomness—not issuance order—decides the order.
+
+> **Security:** These are identifiers, **not secrets**, session credentials, authentication tokens, or API keys.
+
+## ⚙️ Requirements
 
 - Python **3.11 or newer**.
 - No runtime dependencies; randomness comes from the operating system CSPRNG
@@ -41,34 +48,77 @@ identifier format versioned.
 
 Python 3.11 is the oldest version with the typing and standard-library
 features this package targets, and it is still receiving security fixes.
-CPython 3.11–3.14 is verified locally on macOS. The CI workflow configures
-Linux, macOS, and Windows for 3.11–3.14, but the hosted jobs have not executed
-yet, so Linux and Windows remain unverified. This project has not been verified
-on PyPy or on free-threaded builds.
+CI verifies supported CPython versions on Linux, macOS, and Windows; PyPy and free-threaded builds are not claimed.
 
-## Installation
+## 📦 Installation
 
-The package is not published yet. Install it from a checkout:
+The package is not yet on PyPI. Install it from this public source repository:
 
-```console
+```sh
+git clone https://github.com/pikaid/pikaid-python.git
+cd pikaid-python
 python -m pip install .
 ```
 
-For development:
+For development and tests, use `python -m pip install -e '.[dev]'` from the checkout.
 
-```console
-uv venv --python 3.12
-uv sync --extra dev
+## 🚀 Basic Usage
+
+Copy and run the complete example below (for example, save it as `demo.py` and execute `python demo.py`):
+
+```python
+from pikaid import generate, parse, to_binary, from_binary, is_valid
+
+identifier = generate()
+assert is_valid(identifier)
+parsed = parse(identifier)
+binary = to_binary(identifier)
+assert len(identifier) == 26 and len(binary) == 17
+assert from_binary(binary) == identifier
+print(identifier, parsed.timestamp)
 ```
 
-## Release status and versioning
+## 💡 Example Use Case
 
-Package version **1.0.0** is the first stable version of this Python package.
-The identifier format is unversioned; the package version refers only to this
-implementation. It has not been published yet: no Git tag, registry upload, or
-signed artifact exists. See [CHANGELOG.md](CHANGELOG.md).
+Use pikaid to identify **users, orders, invoices, uploads, events, and API resources**. Independent services can generate compact IDs without a shared counter, while timestamp-based ordering helps with indexing, sorting, and logs.
 
-## Usage
+## 📚 Canonical specification
+
+- [Canonical specification](https://github.com/pikaid/pikaid-specs)
+- [Revision 1.0.4](https://github.com/pikaid/pikaid-specs/tree/v1.0.4)
+
+Specification revisions describe the format; they do not change the encoded identifiers.
+
+## 🧩 API Reference
+
+The module-level functions and the `Pikaid` value type are equivalent entry
+points; use whichever reads better in context. `Pikaid` is an immutable,
+hashable, orderable dataclass.
+
+| Name | Kind | Description |
+| --- | --- | --- |
+| `generate(timestamp=None)` | function | New identifier as 26-character `str`; defaults to the current second. |
+| `generate_binary(timestamp=None)` | function | New identifier as 17 `bytes`. |
+| `Pikaid.generate(timestamp=None)` | class method | New validated `Pikaid`. |
+| `parse(value)` / `Pikaid.parse(value)` | function / class method | Strictly decode a string; raise `InvalidPikaidError`. |
+| `from_binary(value)` / `Pikaid.from_binary(value)` | function / class method | Strictly decode 17 bytes; accept `bytes`, `bytearray`, or `memoryview`. |
+| `to_binary(value)` | function | Convert a string or `Pikaid` to 17 `bytes`. |
+| `is_valid(value)` | function | Full semantic validity as `bool`; never raises. |
+| `is_well_formed(value)` | function | Length-and-alphabet shape check as `bool`; never raises. |
+| `Pikaid.timestamp` | attribute | Unsigned whole Unix seconds, `0..78_364_164_095`. |
+| `Pikaid.randomness` | attribute | Exactly 12 raw entropy `bytes`. |
+| `Pikaid.randomness_hex` | property | The entropy as 24 lowercase hex characters. |
+| `Pikaid.datetime` | property | Timezone-aware UTC `datetime` for the timestamp. |
+| `Pikaid.to_string()` / `str(value)` | method | Canonical 26-character form. |
+| `Pikaid.to_binary()` | method | Canonical 17-byte form. |
+
+Public constants: `ALPHABET`, `STRING_LENGTH`, `TIMESTAMP_CHARS`,
+`RANDOMNESS_CHARS`, `BINARY_LENGTH`, `TIMESTAMP_BYTES`, `RANDOMNESS_BYTES`,
+`MAX_TIMESTAMP`, and `MAX_RANDOMNESS`.
+
+Errors: `PikaidError` is the common base. `InvalidPikaidError` and
+`InvalidTimestampError` also subclass `ValueError`; `EntropySourceError` also
+subclasses `RuntimeError`.
 
 Generate an identifier for the current second:
 
@@ -166,38 +216,7 @@ True
 
 ```
 
-## Public API
-
-The module-level functions and the `Pikaid` value type are equivalent entry
-points; use whichever reads better in context. `Pikaid` is an immutable,
-hashable, orderable dataclass.
-
-| Name | Kind | Description |
-| --- | --- | --- |
-| `generate(timestamp=None)` | function | New identifier as 26-character `str`; defaults to the current second. |
-| `generate_binary(timestamp=None)` | function | New identifier as 17 `bytes`. |
-| `Pikaid.generate(timestamp=None)` | class method | New validated `Pikaid`. |
-| `parse(value)` / `Pikaid.parse(value)` | function / class method | Strictly decode a string; raise `InvalidPikaidError`. |
-| `from_binary(value)` / `Pikaid.from_binary(value)` | function / class method | Strictly decode 17 bytes; accept `bytes`, `bytearray`, or `memoryview`. |
-| `to_binary(value)` | function | Convert a string or `Pikaid` to 17 `bytes`. |
-| `is_valid(value)` | function | Full semantic validity as `bool`; never raises. |
-| `is_well_formed(value)` | function | Length-and-alphabet shape check as `bool`; never raises. |
-| `Pikaid.timestamp` | attribute | Unsigned whole Unix seconds, `0..78_364_164_095`. |
-| `Pikaid.randomness` | attribute | Exactly 12 raw entropy `bytes`. |
-| `Pikaid.randomness_hex` | property | The entropy as 24 lowercase hex characters. |
-| `Pikaid.datetime` | property | Timezone-aware UTC `datetime` for the timestamp. |
-| `Pikaid.to_string()` / `str(value)` | method | Canonical 26-character form. |
-| `Pikaid.to_binary()` | method | Canonical 17-byte form. |
-
-Public constants: `ALPHABET`, `STRING_LENGTH`, `TIMESTAMP_CHARS`,
-`RANDOMNESS_CHARS`, `BINARY_LENGTH`, `TIMESTAMP_BYTES`, `RANDOMNESS_BYTES`,
-`MAX_TIMESTAMP`, and `MAX_RANDOMNESS`.
-
-Errors: `PikaidError` is the common base. `InvalidPikaidError` and
-`InvalidTimestampError` also subclass `ValueError`; `EntropySourceError` also
-subclasses `RuntimeError`.
-
-## Ordering, security, and interoperability caveats
+## 🔄 Order Guarantee
 
 - **Sortable across seconds, not within one.** Lexicographic string order and
   unsigned bytewise binary order agree with `Pikaid` ordering. Identifiers
@@ -224,7 +243,23 @@ subclasses `RuntimeError`.
 `4453-04-05 15:21:35 UTC`. The `datetime` property is computed arithmetically
 from the Unix epoch so it does not depend on platform `fromtimestamp` limits.
 
-## Development and validation
+## 🛢 Storage Recommendations
+
+| Representation | Size | Recommended for |
+| --- | ---: | --- |
+| **BINARY(17)** | 17 bytes | Compact primary keys and indexes |
+| **CHAR(26)** | 26 characters | Readable SQL, debugging, URLs, and logs |
+
+Use an **ASCII bytewise/binary collation** for text columns (for example, `ascii_bin` on MariaDB/MySQL). Case-insensitive or locale-aware sorting is not a substitute for canonical bytewise comparison.
+
+## ✅ Verification and release status
+
+The [CI workflow](https://github.com/pikaid/pikaid-python/actions/workflows/ci.yml) runs native tests, pinned automated conformance checks, and language-specific quality gates. To run the native checks locally from a checkout, use `python -m pytest` after installing the development extras.
+
+**Automated passing tests are not a security certification.** The independent CSPRNG source and failure-path audits (`P-GENERATE-RNG-SOURCE` and `P-GENERATE-RNG-FAILURE`) still require separate human evidence.
+
+<details>
+<summary>Platform, tooling, and conformance details</summary>
 
 ```console
 uv venv --python 3.12
@@ -255,8 +290,35 @@ The suite's `--automated-only` exit `0` means the automated checks passed. It is
 `P-GENERATE-RNG-FAILURE` remain manual human-audit items, and the suite's
 default exit `3` means that audit is still outstanding.
 
-## License
+</details>
 
-MIT. See [LICENSE](LICENSE).
+Registry publication is not implied by a green CI: use the installation method documented above.
 
-Copyright (c) 2026 larananas (Lara G.).
+## 🤝 Contributing
+
+Contributions are always welcome! 💙
+
+Whether you're fixing a typo, improving documentation, adding tests, or making pikaid even better, every contribution is appreciated.
+
+**Want to help? Here's how:**
+
+- 🐛 **Found a bug?** [Open an issue](https://github.com/pikaid/pikaid-python/issues) with clear reproduction steps.
+- 💡 **Have an idea?** Start with an issue before making major changes.
+- 🛠️ **Ready to contribute?** Open a pull request explaining your changes.
+- 🧪 **Keep it tested.** Add meaningful regression tests for behavior changes and follow the existing conventions.
+- ✅ **Make sure CI passes.** All required checks must be green before a pull request is merged. No shortcuts!
+
+**One important rule:** pikaid's identifier format is immutable. Contributions must preserve the [canonical specification (revision 1.0.4)](https://github.com/pikaid/pikaid-specs/tree/v1.0.4).
+
+🔐 **Found a security vulnerability?** Report it privately using GitHub's security reporting (when available), or [contact the maintainer](mailto:larananas.dev@proton.me)—not through a public issue.
+
+**Every improvement matters, big or small. Thanks for helping make pikaid better!** 🐇
+
+## 📄 License
+
+The implementation is available under the [MIT License](LICENSE).
+
+## ✉️ Contact
+
+For licensing or project-related questions: [larananas.dev@proton.me](mailto:larananas.dev@proton.me).
+

@@ -1,0 +1,27 @@
+# Python bytecode and caches
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+
+# Virtual environments and tooling
+.venv*/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+
+# Build artifacts
+build/
+dist/
+
+# Local and OS files
+.DS_Store
+
+# Local-only AI working artifacts: never tracked or packaged.
+# This explicit root rule replaces the previous overbroad "/.??" pattern,
+# which also matched unrelated root dotfiles.
+/.ai/

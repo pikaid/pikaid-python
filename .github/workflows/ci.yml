@@ -1,0 +1,330 @@
+name: CI
+
+on:
+  # Every pushed branch is validated.  Conformance must not depend on a branch
+  # protection rule or a required-merge setting that this repository does not
+  # use; the workflow itself is the gate.
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    name: Lint, types, documentation
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+
+      - name: Install development dependencies
+        run: python -m pip install --upgrade pip && python -m pip install -e ".[dev]"
+
+      - name: Check formatting
+        run: ruff format --check .
+
+      - name: Lint
+        run: ruff check .
+
+      - name: Type check
+        run: mypy src
+
+      - name: Check README examples
+        run: pytest tests/test_readme.py -q
+
+      - name: Ensure the test oracle never imports the implementation
+        run: |
+          # ``! grep`` would be exempt from ``set -e``, so assert explicitly.
+          if grep -nE '(^|[[:space:]])(import|from)[[:space:]]+pikaid' tests/support.py; then
+            echo "::error::tests/support.py must not import pikaid"
+            exit 1
+          fi
+          if grep -n 'pikaid\.' tests/support.py; then
+            echo "::error::tests/support.py must not reference pikaid"
+            exit 1
+          fi
+
+      - name: Ensure local-only artifacts are not tracked
+        run: |
+          if git ls-files | grep -E '(^|/)(\.ai|dist|\.venv[^/]*)/'; then
+            echo "::error::local-only artifacts must never be tracked"
+            exit 1
+          fi
+
+  test:
+    name: Test ${{ matrix.os }} / Python ${{ matrix.python-version }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            python-version: "3.11"
+          - os: ubuntu-latest
+            python-version: "3.12"
+          - os: ubuntu-latest
+            python-version: "3.13"
+          - os: ubuntu-latest
+            python-version: "3.14"
+          - os: macos-latest
+            python-version: "3.11"
+          - os: macos-latest
+            python-version: "3.14"
+          - os: windows-latest
+            python-version: "3.11"
+          - os: windows-latest
+            python-version: "3.14"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+          cache-dependency-path: pyproject.toml
+
+      - name: Install development dependencies
+        run: python -m pip install --upgrade pip && python -m pip install -e ".[dev]"
+
+      - name: Run tests with coverage
+        # The 100% line and branch gate is configured in pyproject.toml; it is
+        # repeated here so a silent configuration change cannot weaken CI.
+        run: pytest --cov=pikaid --cov-report=term-missing --cov-fail-under=100
+
+  package:
+    name: Build and install the distribution
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+
+      - name: Install build tooling
+        run: python -m pip install --upgrade pip build twine
+
+      - name: Build sdist and wheel
+        env:
+          SOURCE_DATE_EPOCH: "0"
+        run: python -m build
+
+      - name: Prove the build is reproducible
+        env:
+          SOURCE_DATE_EPOCH: "0"
+        run: |
+          repro="$(mktemp -d)"
+          python -m build --outdir "$repro" > /dev/null
+          for artifact in dist/*; do
+            cmp "$artifact" "$repro/$(basename "$artifact")"
+          done
+
+      - name: Check distribution metadata
+        run: python -m twine check dist/*
+
+      - name: Check archive contents and pinned fixtures
+        run: |
+          python - <<'PY'
+          import hashlib
+          import pathlib
+          import tarfile
+          import zipfile
+
+          dist = pathlib.Path("dist")
+          wheels = list(dist.glob("*.whl"))
+          sdists = list(dist.glob("*.tar.gz"))
+          assert len(wheels) == 1 and len(sdists) == 1, (wheels, sdists)
+          wheel, sdist = wheels[0], sdists[0]
+          assert wheel.name == "pikaid-1.0.0-py3-none-any.whl", wheel.name
+          assert sdist.name == "pikaid-1.0.0.tar.gz", sdist.name
+
+          with zipfile.ZipFile(wheel) as archive:
+              names = archive.namelist()
+              assert all(
+                  name.startswith(("pikaid/", "pikaid-1.0.0.dist-info/")) for name in names
+              ), names
+              assert "pikaid/py.typed" in names
+              assert "pikaid/__init__.py" in names
+              assert not [
+                  name
+                  for name in names
+                  if ".ai/" in name or "__pycache__" in name or name.endswith(".pyc")
+              ], names
+              assert not [name for name in names if name.startswith("tests/")], names
+              metadata = archive.read("pikaid-1.0.0.dist-info/METADATA").decode()
+              assert "Version: 1.0.0" in metadata
+              assert "Requires-Python: >=3.11" in metadata
+              runtime_dependencies = [
+                  line
+                  for line in metadata.splitlines()
+                  if line.startswith("Requires-Dist:") and "extra ==" not in line
+              ]
+              assert not runtime_dependencies, runtime_dependencies
+
+          pinned = {
+              "pikaid-1.0.0/tests/vectors/pikaid-v1.json":
+                  "b0c9dfdd063613424414fef5c9065fbd2f81d645d0ab42b34e27cde715613500",
+              "pikaid-1.0.0/tests/vectors/pikaid-v1.schema.json":
+                  "4441d4dbaa6c5450ae9cbfb2438c53bc0421bba2b7fcc9ef9b158e5d1de0759e",
+          }
+          with tarfile.open(sdist) as archive:
+              members = [member for member in archive.getmembers() if member.isfile()]
+              names = [member.name for member in members]
+              assert all(name.startswith("pikaid-1.0.0/") for name in names), names[:3]
+              for required in (
+                  "pikaid-1.0.0/src/pikaid/py.typed",
+                  "pikaid-1.0.0/src/pikaid/_core.py",
+                  "pikaid-1.0.0/tests/test_conformance.py",
+                  "pikaid-1.0.0/tests/vectors/pikaid-v1.json",
+                  "pikaid-1.0.0/README.md",
+                  "pikaid-1.0.0/CHANGELOG.md",
+                  "pikaid-1.0.0/LICENSE",
+                  "pikaid-1.0.0/pyproject.toml",
+              ):
+                  assert required in names, required
+              assert not [
+                  name
+                  for name in names
+                  if "/.ai/" in name
+                  or "__pycache__" in name
+                  or name.endswith(".pyc")
+                  or name.startswith("pikaid-1.0.0/.github/")
+                  or name.startswith("pikaid-1.0.0/dist/")
+                  or name.startswith("pikaid-1.0.0/.venv")
+              ], names
+              for name, expected in pinned.items():
+                  data = archive.extractfile(name).read()
+                  assert hashlib.sha256(data).hexdigest() == expected, name
+                  assert b"\r" not in data, name
+          print("archive contents and fixture digests verified")
+          PY
+
+      - name: Install the wheel and run the full suite against it
+        run: |
+          python -m venv wheel-venv
+          wheel-venv/bin/python -m pip install --upgrade pip
+          wheel-venv/bin/python -m pip install dist/*.whl pytest hypothesis jsonschema
+          work="$(mktemp -d)"
+          cp -R tests "$work/tests"
+          cp README.md "$work/README.md"
+          cd "$work"
+          "$GITHUB_WORKSPACE/wheel-venv/bin/python" -c "import pikaid; assert 'site-packages' in pikaid.__file__, pikaid.__file__; assert pikaid.__version__ == '1.0.0'"
+          "$GITHUB_WORKSPACE/wheel-venv/bin/python" -m pytest tests -q -p no:cacheprovider
+
+      - name: Install the sdist and smoke test from outside the checkout
+        run: |
+          python -m venv sdist-venv
+          sdist-venv/bin/python -m pip install --upgrade pip
+          sdist-venv/bin/python -m pip install dist/*.tar.gz
+          work="$(mktemp -d)"
+          cd "$work"
+          "$GITHUB_WORKSPACE/sdist-venv/bin/python" - <<'PY'
+          import pathlib
+          import sys
+
+          import pikaid
+
+          root = pathlib.Path(pikaid.__file__).parent
+          assert "site-packages" in str(root), root
+          assert (root / "py.typed").is_file()
+          assert (root / "errors.py").is_file()
+          assert pikaid.__version__ == "1.0.0"
+          value = pikaid.generate()
+          assert pikaid.is_valid(value)
+          assert pikaid.is_well_formed(value)
+          assert len(value) == 26 and len(pikaid.to_binary(value)) == 17
+          assert pikaid.from_binary(pikaid.to_binary(value)).to_string() == value
+          assert pikaid.parse(value).datetime.tzinfo is not None
+          print(pikaid.__version__, sys.version)
+          PY
+
+  conformance:
+    name: Official conformance suite (pinned commit)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      # Immutable upstream provenance.  Never point this at a mutable branch.
+      # The ``runner`` context is not available in a job-level ``env`` block,
+      # so the checkout directory is exported from the fetch step via
+      # ``$GITHUB_ENV`` instead.
+      PIKAID_SUITE_COMMIT: 059780cc0e5b113443812720d95c630649bf3aa3
+      PIKAID_SUITE_REPO: https://github.com/pikaid/pikaid-specs.git
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Fetch the pinned official suite at an immutable commit
+        run: |
+          set -euo pipefail
+          PIKAID_SUITE_DIR="$RUNNER_TEMP/pikaid-specs"
+          echo "PIKAID_SUITE_DIR=$PIKAID_SUITE_DIR" >> "$GITHUB_ENV"
+          git init "$PIKAID_SUITE_DIR"
+          git -C "$PIKAID_SUITE_DIR" remote add origin "$PIKAID_SUITE_REPO"
+          # core.autocrlf=false keeps the checksummed fixtures byte-identical.
+          git -C "$PIKAID_SUITE_DIR" -c core.autocrlf=false \
+            fetch --depth 1 origin "$PIKAID_SUITE_COMMIT"
+          git -C "$PIKAID_SUITE_DIR" -c core.autocrlf=false checkout --detach FETCH_HEAD
+          test "$(git -C "$PIKAID_SUITE_DIR" rev-parse HEAD)" = "$PIKAID_SUITE_COMMIT"
+          # The driver re-verifies SHA256SUMS, suite identity and fixture counts.
+          test -f "$PIKAID_SUITE_DIR/conformance/SHA256SUMS"
+
+      - name: Install build and suite dependencies
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          python -m pip install build "jsonschema==4.26.0"
+
+      - name: Build wheel and sdist
+        env:
+          SOURCE_DATE_EPOCH: "0"
+        run: python -m build --outdir dist
+
+      - name: Run the pinned suite against the installed wheel
+        run: |
+          set -euo pipefail
+          python -m venv wheel-venv
+          wheel-venv/bin/python -m pip install --upgrade pip
+          wheel-venv/bin/python -m pip install dist/*.whl
+          wheel-venv/bin/python -c "import pikaid; assert 'site-packages' in pikaid.__file__, pikaid.__file__"
+          # The driver runs on the build environment's interpreter (it executes
+          # the suite's own jsonschema-backed tools); only the adapter runs under
+          # the clean venv so the installed wheel is what gets tested.
+          python tests/official/run_official_suite.py \
+            --suite "$PIKAID_SUITE_DIR/conformance" \
+            --report-json "$RUNNER_TEMP/conformance-wheel.json" \
+            -- wheel-venv/bin/python tests/official/adapter.py
+
+      - name: Run the pinned suite against the installed sdist
+        run: |
+          set -euo pipefail
+          python -m venv sdist-venv
+          sdist-venv/bin/python -m pip install --upgrade pip
+          sdist-venv/bin/python -m pip install dist/*.tar.gz
+          sdist-venv/bin/python -c "import pikaid; assert 'site-packages' in pikaid.__file__, pikaid.__file__"
+          python tests/official/run_official_suite.py \
+            --suite "$PIKAID_SUITE_DIR/conformance" \
+            --report-json "$RUNNER_TEMP/conformance-sdist.json" \
+            -- sdist-venv/bin/python tests/official/adapter.py
+
+      - name: Upload automated conformance reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: official-conformance-reports
+          path: ${{ runner.temp }}/conformance-*.json
+          if-no-files-found: warn
